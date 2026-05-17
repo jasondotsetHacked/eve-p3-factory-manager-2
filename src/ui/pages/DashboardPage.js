@@ -5,6 +5,7 @@ import { ColonySidebar } from "../modules/ColonySidebar.js";
 import { ColonyMap } from "../modules/ColonyMap.js";
 import { PinInspector } from "../modules/PinInspector.js";
 import { DashboardLayout } from "../layouts/DashboardLayout.js";
+import { beginEveSsoLogin } from "../../data/auth.js";
 
 export function DashboardPage({ mount, colonies, authStatus }) {
   let selectedColonyId = colonies[0]?.id ?? null;
@@ -40,8 +41,12 @@ export function DashboardPage({ mount, colonies, authStatus }) {
     const authButton = Button({
       label: authStatus.isAuthenticated ? authStatus.characterName : "Connect EVE SSO",
       variant: "primary",
-      onClick: () => {
-        window.alert("EVE SSO PKCE authentication is planned for the next milestone.");
+      onClick: async () => {
+        try {
+          await beginEveSsoLogin();
+        } catch (error) {
+          window.alert(error.message);
+        }
       },
     });
 

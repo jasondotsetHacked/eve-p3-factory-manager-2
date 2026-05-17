@@ -31,8 +31,33 @@ This first milestone is a mocked working UI shell:
 - Mock colony pins and links.
 - Pin hover tooltip.
 - Pin click selection and inspector population.
+- Local SSO PKCE helper functions.
+- Local ESI exploration tests that can capture authenticated responses into ignored `dev/esi`.
+- Local SDE updater that downloads official JSONL exports into ignored `dev/sde`.
 
 No live ESI calls are made yet.
+
+## Local Development
+
+Serve the app:
+
+```sh
+npm run serve
+```
+
+Run tests:
+
+```sh
+npm test
+```
+
+Update the local SDE cache and generated manifest:
+
+```sh
+npm run sde:update
+```
+
+See `docs/eve-developer-setup.md` for EVE developer portal setup and `docs/dev-workflow.md` for ESI/SDE exploration notes.
 
 ## Likely Next Milestones
 

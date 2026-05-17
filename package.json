@@ -1,0 +1,12 @@
+{
+  "name": "pi-factory-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python3 -m http.server 4173",
+    "test": "node --test",
+    "test:esi": "node --test test/esi-contract.test.js",
+    "sde:update": "node scripts/update-sde.js"
+  }
+}
