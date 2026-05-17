@@ -1,6 +1,24 @@
 {
-  "build": null,
-  "updatedAt": null,
-  "source": null,
-  "files": []
+  "build": 3346029,
+  "updatedAt": "2026-05-17T15:24:41.217Z",
+  "source": "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip",
+  "archive": "dev/sde/downloads/eve-online-static-data-3346029-jsonl.zip",
+  "files": [
+    {
+      "name": "types.jsonl",
+      "localPath": "dev/sde/extracted/types.jsonl"
+    },
+    {
+      "name": "planetSchematics.jsonl",
+      "localPath": "dev/sde/extracted/planetSchematics.jsonl"
+    },
+    {
+      "name": "planetResources.jsonl",
+      "localPath": "dev/sde/extracted/planetResources.jsonl"
+    },
+    {
+      "name": "mapPlanets.jsonl",
+      "localPath": "dev/sde/extracted/mapPlanets.jsonl"
+    }
+  ]
 }

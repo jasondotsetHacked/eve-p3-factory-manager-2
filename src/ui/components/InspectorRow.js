@@ -1,4 +1,8 @@
 export function InspectorRow(label, value) {
+  if (value === null || value === undefined || value === "" || value === "N/A") {
+    return document.createDocumentFragment();
+  }
+
   const row = document.createElement("div");
   row.className = "inspector-row";
 

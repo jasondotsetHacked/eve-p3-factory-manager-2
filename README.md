@@ -16,26 +16,27 @@ The frontend uses an atomic-style UI organization:
 
 Supporting layers:
 
-- `src/data`: authentication, ESI client placeholders, static-data lookup placeholders, and current mock colony data.
+- `src/data`: authentication, ESI client code, ESI colony mapping, and static-data lookup helpers.
 - `src/utils`: DOM helpers, formatting helpers, and layout geometry helpers.
 - `src/styles`: reset, design tokens, base layout styles, and utilities.
 
 ## Current Milestone
 
-This first milestone is a mocked working UI shell:
+The app now has a live ESI-backed PI colony shell:
 
 - Header with an EVE SSO placeholder action.
-- Left colony sidebar with mock colonies.
-- Center SVG colony layout renderer.
+- Left colony sidebar with live character colonies.
+- Center SVG graph renderer.
 - Right pin inspector panel.
-- Mock colony pins and links.
+- Live ESI colony pins and links.
 - Pin hover tooltip.
 - Pin click selection and inspector population.
-- Local SSO PKCE helper functions.
+- Browser EVE SSO PKCE login, callback handling, character JWT decoding, and logout.
+- Authenticated ESI client helpers for PI planets, PI colony layouts, and character assets.
 - Local ESI exploration tests that can capture authenticated responses into ignored `dev/esi`.
 - Local SDE updater that downloads official JSONL exports into ignored `dev/sde`.
 
-No live ESI calls are made yet.
+The renderer uses an abstract grid graph layout derived from ESI links, not a latitude/longitude planet projection.
 
 ## Local Development
 

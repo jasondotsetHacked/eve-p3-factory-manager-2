@@ -20,6 +20,8 @@ For local development:
 http://127.0.0.1:4173/
 ```
 
+Use this exact address in the browser when testing locally. `http://localhost:4173/` is a different redirect URI and will not match the registered callback unless you add it separately.
+
 For GitHub Pages, add the final Pages URL, for example:
 
 ```text
@@ -61,7 +63,18 @@ The client ID is public. The client secret is not public and should not be used 
 
 ## Local Auth Test Notes
 
-This repo now has PKCE helpers in `src/data/auth.js`. The next milestone should finish callback handling, token validation, character identity extraction, refresh behavior, and ESI request wiring.
+This repo now has a browser PKCE flow in `src/data/auth.js`:
+
+- Builds the EVE SSO authorization URL with a generated state and PKCE verifier.
+- Stores transient OAuth state in `sessionStorage`.
+- Handles the callback at the app root.
+- Validates returned state.
+- Exchanges the authorization code for a token without a client secret.
+- Decodes the returned JWT payload to identify the character.
+- Stores the active browser session in `sessionStorage`.
+- Exposes authenticated ESI helpers through `src/data/esi-client.js`.
+
+Refresh-token handling is intentionally not built yet. The current browser session expires when the EVE access token expires or the tab session ends.
 
 Sources checked on May 17, 2026:
 

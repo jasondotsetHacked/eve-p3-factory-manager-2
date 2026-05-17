@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const ESI_BASE_URL = "https://esi.evetech.net/latest";
@@ -11,6 +11,42 @@ const REQUIRED_ENDPOINTS = {
   "/characters/{character_id}/planets/{planet_id}/": "esi-planets.manage_planets.v1",
   "/characters/{character_id}/assets/": "esi-assets.read_assets.v1",
 };
+
+async function loadLocalEnv() {
+  let text;
+
+  try {
+    text = await readFile(".env", "utf8");
+  } catch {
+    return;
+  }
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const index = line.indexOf("=");
+    if (index === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, index).trim();
+    let value = line.slice(index + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+if (process.env.npm_lifecycle_event === "test:esi") {
+  await loadLocalEnv();
+}
 
 function headers(accessToken) {
   return {
@@ -40,6 +76,14 @@ async function getJson(url, accessToken) {
   return { response, body };
 }
 
+async function fetchPlanetsForTest(accessToken, characterId) {
+  const { response, body } = await getJson(`${ESI_BASE_URL}/characters/${characterId}/planets/`, accessToken);
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(body));
+  await saveJson("characters-planets.json", body);
+  return body;
+}
+
 test("ESI swagger exposes expected PI and asset scopes", async () => {
   const { response, body } = await getJson("https://esi.evetech.net/latest/swagger.json");
   assert.equal(response.status, 200);
@@ -67,27 +111,33 @@ test("GET /characters/{character_id}/planets/ returns a colony list", async (t) 
     return;
   }
 
-  const { response, body } = await getJson(`${ESI_BASE_URL}/characters/${characterId}/planets/`, accessToken);
-  assert.equal(response.status, 200);
-  assert.ok(Array.isArray(body));
-  await saveJson("characters-planets.json", body);
+  await fetchPlanetsForTest(accessToken, characterId);
 });
 
 test("GET /characters/{character_id}/planets/{planet_id}/ returns colony layout", async (t) => {
   const accessToken = process.env.EVE_ACCESS_TOKEN;
   const characterId = process.env.EVE_CHARACTER_ID;
-  const planetId = process.env.EVE_PLANET_ID;
+  let planetId = process.env.EVE_PLANET_ID;
 
-  if (!accessToken || !characterId || !planetId) {
-    t.skip("Set EVE_ACCESS_TOKEN, EVE_CHARACTER_ID, and EVE_PLANET_ID to run colony layout checks.");
+  if (!accessToken || !characterId) {
+    t.skip("Set EVE_ACCESS_TOKEN and EVE_CHARACTER_ID to run colony layout checks.");
+    return;
+  }
+
+  const planets = await fetchPlanetsForTest(accessToken, characterId);
+  const configuredPlanet = planets.find((planet) => String(planet.planet_id) === String(planetId));
+  planetId = configuredPlanet?.planet_id ?? planets[0]?.planet_id;
+
+  if (!planetId) {
+    t.skip("Character has no PI colonies to inspect.");
     return;
   }
 
   const { response, body } = await getJson(`${ESI_BASE_URL}/characters/${characterId}/planets/${planetId}/`, accessToken);
+  await saveJson(`character-planet-${planetId}.json`, body);
   assert.equal(response.status, 200);
   assert.ok(Array.isArray(body.pins), "Expected pins array");
   assert.ok(Array.isArray(body.links), "Expected links array");
-  await saveJson(`character-planet-${planetId}.json`, body);
 });
 
 test("GET /characters/{character_id}/assets/ returns character assets", async (t) => {

@@ -6,7 +6,7 @@ export const EVE_SSO_SCOPES = [
 export const EVE_SSO_STORAGE_KEYS = {
   state: "piFactoryManager.sso.state",
   verifier: "piFactoryManager.sso.codeVerifier",
-  token: "piFactoryManager.sso.token",
+  session: "piFactoryManager.sso.session",
 };
 
 export const EVE_SSO_ENDPOINTS = {

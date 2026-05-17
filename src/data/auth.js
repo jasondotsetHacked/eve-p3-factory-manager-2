@@ -1,8 +1,18 @@
 import { EVE_SSO_ENDPOINTS, EVE_SSO_SCOPES, EVE_SSO_STORAGE_KEYS, getEveClientId, getRedirectUri } from "./sso-config.js";
 
+const CLOCK_SKEW_SECONDS = 30;
+
 function base64UrlEncode(bytes) {
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlDecode(value) {
+  const padded = value.padEnd(value.length + ((4 - (value.length % 4)) % 4), "=");
+  const base64 = padded.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 
 function randomBase64Url(byteLength = 32) {
@@ -17,28 +27,88 @@ async function sha256Base64Url(value) {
   return base64UrlEncode(new Uint8Array(digest));
 }
 
-export function getAuthStatus() {
-  const tokenJson = sessionStorage.getItem(EVE_SSO_STORAGE_KEYS.token);
+function decodeJwtPayload(jwt) {
+  const [, payload] = jwt.split(".");
 
-  if (!tokenJson) {
-    return {
-      isAuthenticated: false,
-      characterName: null,
-    };
+  if (!payload) {
+    throw new Error("EVE SSO returned an invalid JWT.");
+  }
+
+  return JSON.parse(base64UrlDecode(payload));
+}
+
+function characterIdFromSubject(subject) {
+  const match = /^CHARACTER:EVE:(\d+)$/.exec(subject ?? "");
+  return match ? Number(match[1]) : null;
+}
+
+function createSession(token) {
+  const accessTokenPayload = decodeJwtPayload(token.access_token);
+  const expiresIn = Number(token.expires_in ?? 0);
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = expiresIn ? now + expiresIn : accessTokenPayload.exp;
+
+  return {
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token ?? null,
+    tokenType: token.token_type ?? "Bearer",
+    expiresAt,
+    characterId: characterIdFromSubject(accessTokenPayload.sub),
+    characterName: accessTokenPayload.name ?? "EVE Character",
+    scopes: typeof accessTokenPayload.scp === "string" ? accessTokenPayload.scp.split(" ") : accessTokenPayload.scp ?? [],
+    jwt: {
+      issuer: accessTokenPayload.iss,
+      subject: accessTokenPayload.sub,
+      audience: accessTokenPayload.aud,
+    },
+  };
+}
+
+export function getAuthSession() {
+  const sessionJson = sessionStorage.getItem(EVE_SSO_STORAGE_KEYS.session);
+
+  if (!sessionJson) {
+    return null;
   }
 
   try {
-    const token = JSON.parse(tokenJson);
-    return {
-      isAuthenticated: Boolean(token.access_token),
-      characterName: token.characterName ?? "EVE Character",
-    };
+    const session = JSON.parse(sessionJson);
+    if (!session.accessToken || !session.expiresAt) {
+      return null;
+    }
+
+    return session;
   } catch {
+    return null;
+  }
+}
+
+export function isSessionExpired(session = getAuthSession()) {
+  if (!session?.expiresAt) {
+    return true;
+  }
+
+  return Math.floor(Date.now() / 1000) >= session.expiresAt - CLOCK_SKEW_SECONDS;
+}
+
+export function getAuthStatus() {
+  const session = getAuthSession();
+
+  if (!session || isSessionExpired(session)) {
     return {
       isAuthenticated: false,
       characterName: null,
+      characterId: null,
+      scopes: [],
     };
   }
+
+  return {
+    isAuthenticated: true,
+    characterName: session.characterName,
+    characterId: session.characterId,
+    scopes: session.scopes,
+  };
 }
 
 export async function buildAuthorizationRequest({ clientId = getEveClientId(), redirectUri = getRedirectUri(), scopes = EVE_SSO_SCOPES } = {}) {
@@ -93,6 +163,11 @@ export function assertValidAuthorizationState(returnedState) {
   }
 }
 
+export function hasAuthorizationResponse(url = window.location.href) {
+  const parsed = new URL(url);
+  return parsed.searchParams.has("code") || parsed.searchParams.has("error");
+}
+
 export async function exchangeCodeForToken({ code, clientId = getEveClientId(), redirectUri = getRedirectUri() }) {
   const codeVerifier = sessionStorage.getItem(EVE_SSO_STORAGE_KEYS.verifier);
 
@@ -121,14 +196,34 @@ export async function exchangeCodeForToken({ code, clientId = getEveClientId(), 
   }
 
   const token = await response.json();
-  sessionStorage.setItem(EVE_SSO_STORAGE_KEYS.token, JSON.stringify(token));
+  const session = createSession(token);
+  sessionStorage.setItem(EVE_SSO_STORAGE_KEYS.session, JSON.stringify(session));
   sessionStorage.removeItem(EVE_SSO_STORAGE_KEYS.state);
   sessionStorage.removeItem(EVE_SSO_STORAGE_KEYS.verifier);
-  return token;
+  return session;
+}
+
+export async function handleAuthorizationCallback(url = window.location.href) {
+  const callback = parseAuthorizationResponse(url);
+
+  if (callback.error) {
+    throw new Error(callback.errorDescription || callback.error);
+  }
+
+  if (!callback.code) {
+    return null;
+  }
+
+  assertValidAuthorizationState(callback.state);
+  const session = await exchangeCodeForToken({ code: callback.code });
+  window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+  return session;
 }
 
 export function logout() {
-  sessionStorage.removeItem(EVE_SSO_STORAGE_KEYS.token);
+  sessionStorage.removeItem(EVE_SSO_STORAGE_KEYS.session);
+  sessionStorage.removeItem(EVE_SSO_STORAGE_KEYS.state);
+  sessionStorage.removeItem(EVE_SSO_STORAGE_KEYS.verifier);
 }
 
 export function getRequiredScopes() {

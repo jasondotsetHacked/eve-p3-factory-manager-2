@@ -21,7 +21,7 @@ Run the public contract checks:
 npm test
 ```
 
-To run authenticated endpoint captures, create a local `.env` from `.env.example`, export the values into your shell, then run:
+To run authenticated endpoint captures, create a local `.env` from `.env.example`, then run:
 
 ```sh
 npm run test:esi
@@ -30,10 +30,10 @@ npm run test:esi
 Required values for private endpoint calls:
 
 ```sh
-export EVE_ACCESS_TOKEN="..."
-export EVE_CHARACTER_ID="..."
-export EVE_PLANET_ID="..."
-export EVE_USER_AGENT="PIFactoryManager/0.1.0 (you@example.com; +https://github.com/your-name/pi-factory-manager)"
+EVE_ACCESS_TOKEN=...
+EVE_CHARACTER_ID=...
+EVE_PLANET_ID=
+EVE_USER_AGENT=PIFactoryManager/0.1.0 local-dev
 ```
 
 The tests write successful response snapshots to `dev/esi`.
@@ -48,4 +48,20 @@ Run:
 npm run sde:update
 ```
 
-The script expects the system `unzip` command to be available. The downloaded archive and extracted JSONL files stay ignored because they are large and reproducible.
+The script reads the current `buildNumber` from CCP's `latest.jsonl` metadata. For extraction, it tries these options in order:
+
+1. Native Node ZIP extraction for selected JSONL files.
+2. `unzip`
+3. `tar`
+4. Windows PowerShell `Expand-Archive`
+
+The downloaded archive and extracted JSONL files stay ignored because they are large and reproducible.
+
+The current extracted files are:
+
+- `types.jsonl`
+- `planetSchematics.jsonl`
+- `planetResources.jsonl`
+- `mapPlanets.jsonl`
+
+In the current JSONL SDE, `planetSchematics.jsonl` contains the schematic `pins` and input/output `types` data that older exports exposed through separate map files.
